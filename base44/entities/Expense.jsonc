@@ -1,0 +1,44 @@
+{
+  "name": "Expense",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of expense"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "home_needs",
+        "emergency_fund",
+        "investment",
+        "learning",
+        "luxury",
+        "charity"
+      ],
+      "description": "Expense category"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Expense amount in INR"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes about the expense"
+    },
+    "month": {
+      "type": "integer",
+      "description": "Month number for quick filtering"
+    },
+    "year": {
+      "type": "integer",
+      "description": "Year for quick filtering"
+    }
+  },
+  "required": [
+    "date",
+    "category",
+    "amount"
+  ]
+}

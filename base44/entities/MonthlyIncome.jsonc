@@ -1,0 +1,47 @@
+{
+  "name": "MonthlyIncome",
+  "type": "object",
+  "properties": {
+    "year": {
+      "type": "integer",
+      "description": "Year of the income entry"
+    },
+    "month": {
+      "type": "integer",
+      "description": "Month number (1-12)"
+    },
+    "income": {
+      "type": "number",
+      "description": "Total monthly income in INR"
+    },
+    "home_needs": {
+      "type": "number",
+      "description": "50% allocation for home needs"
+    },
+    "emergency_fund": {
+      "type": "number",
+      "description": "15% allocation for emergency fund"
+    },
+    "investment": {
+      "type": "number",
+      "description": "10% allocation for investment"
+    },
+    "learning": {
+      "type": "number",
+      "description": "10% allocation for learning & skill development"
+    },
+    "luxury": {
+      "type": "number",
+      "description": "10% allocation for luxury & entertainment"
+    },
+    "charity": {
+      "type": "number",
+      "description": "5% allocation for charity"
+    }
+  },
+  "required": [
+    "year",
+    "month",
+    "income"
+  ]
+}
