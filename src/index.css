@@ -90,5 +90,13 @@
 
   body {
     @apply bg-background text-foreground font-body;
+    /* 2. Prevent overscroll bounce in WebView */
+    overscroll-behavior-y: none;
+  }
+
+  /* 2. Disable text selection on nav/button elements */
+  nav a, nav button, button, [role="button"] {
+    user-select: none;
+    -webkit-user-select: none;
   }
 }

@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card';
 import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
 import StatCard from '@/components/dashboard/StatCard';
 import AllocationChart from '@/components/dashboard/AllocationChart';
 import HealthScore from '@/components/dashboard/HealthScore';
@@ -19,19 +21,32 @@ export default function Dashboard() {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
-  const { data: incomes = [] } = useQuery({
+  const { data: incomes = [], refetch: refetchIncomes } = useQuery({
     queryKey: ['incomes'],
     queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 100),
   });
 
-  const { data: expenses = [] } = useQuery({
+  const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ['expenses'],
     queryFn: () => base44.entities.Expense.list('-created_date', 100),
   });
 
+  // 9. Pull-to-refresh
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh(
+    async () => { await Promise.all([refetchIncomes(), refetchExpenses()]); }
+  );
+
+  // 5. Optimistic UI for income creation
   const createIncome = useMutation({
     mutationFn: (data) => base44.entities.MonthlyIncome.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onMutate: async (newItem) => {
+      await queryClient.cancelQueries({ queryKey: ['incomes'] });
+      const prev = queryClient.getQueryData(['incomes']);
+      queryClient.setQueryData(['incomes'], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes'], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
   });
 
   const currentMonthIncome = incomes.find(i => i.month === currentMonth && i.year === currentYear);
@@ -48,7 +63,8 @@ export default function Dashboard() {
   const todayTotal = todayExpenses.reduce((s, e) => s + (e.amount || 0), 0);
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
+    <div ref={containerRef} className="relative space-y-6 pb-20 lg:pb-0">
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between gap-4">
         <div>

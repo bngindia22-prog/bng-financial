@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { MobileSelect } from '@/components/ui/MobileSelect';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
 import { CATEGORIES, formatCurrency, getCategoryLabel, getCategoryColor, MONTHS } from '@/lib/constants';
 import { Plus, Trash2, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -19,24 +21,49 @@ export default function Expenses() {
   const queryClient = useQueryClient();
   const now = new Date();
 
-  const { data: expenses = [] } = useQuery({
+  const { data: expenses = [], refetch: refetchExpenses } = useQuery({
     queryKey: ['expenses'],
     queryFn: () => base44.entities.Expense.list('-date', 200),
   });
 
-  const { data: incomes = [] } = useQuery({
+  const { data: incomes = [], refetch: refetchIncomes } = useQuery({
     queryKey: ['incomes'],
     queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
   });
 
+  // 9. Pull-to-refresh
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh(
+    async () => { await Promise.all([refetchExpenses(), refetchIncomes()]); }
+  );
+
+  // 5. Optimistic create
   const createExpense = useMutation({
     mutationFn: (data) => base44.entities.Expense.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['expenses'] }); setShowForm(false); resetForm(); },
+    onMutate: async (newItem) => {
+      await queryClient.cancelQueries({ queryKey: ['expenses'] });
+      const prev = queryClient.getQueryData(['expenses']);
+      queryClient.setQueryData(['expenses'], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses'], ctx.prev),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      setShowForm(false);
+      resetForm();
+    },
   });
 
+  // 5. Optimistic delete
   const deleteExpense = useMutation({
     mutationFn: (id) => base44.entities.Expense.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['expenses'] });
+      const prev = queryClient.getQueryData(['expenses']);
+      queryClient.setQueryData(['expenses'], old => (old || []).filter(e => e.id !== id));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses'], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
   });
 
   const resetForm = () => setForm({ date: new Date().toISOString().split('T')[0], category: '', amount: '', notes: '' });
@@ -68,7 +95,8 @@ export default function Expenses() {
   });
 
   return (
-    <div className="space-y-6 pb-20 lg:pb-0">
+    <div ref={containerRef} className="relative space-y-6 pb-20 lg:pb-0">
+      <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-display font-bold">Expense Tracker</h1>
@@ -160,19 +188,19 @@ export default function Expenses() {
             </div>
             <div>
               <Label>Category</Label>
-              <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                <SelectTrigger className="mt-1"><SelectValue placeholder="Select category" /></SelectTrigger>
-                <SelectContent>
+              {/* 8. Mobile Drawer bottom-sheet for Select */}
+              <div className="mt-1">
+                <MobileSelect
+                  value={form.category}
+                  onValueChange={v => setForm({ ...form, category: v })}
+                  placeholder="Select category"
+                  label="Select Category"
+                >
                   {CATEGORIES.map(cat => (
-                    <SelectItem key={cat.key} value={cat.key}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
-                        {cat.label}
-                      </div>
-                    </SelectItem>
+                    <option key={cat.key} value={cat.key}>{cat.label}</option>
                   ))}
-                </SelectContent>
-              </Select>
+                </MobileSelect>
+              </div>
             </div>
             <div>
               <Label>Amount (₹)</Label>

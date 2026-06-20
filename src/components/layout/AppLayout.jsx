@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, CalendarDays, Wallet, BarChart3, 
-  FileText, Table2, Bell, Menu, X, LogOut, Sun, Moon
+  FileText, Table2, Bell, Menu, X, LogOut, Sun, Moon,
+  ChevronLeft, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
+import DeleteAccountDialog from '@/components/DeleteAccountDialog';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -20,28 +22,61 @@ const navItems = [
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const isRoot = location.pathname === '/';
+
+  // 1. Auto system dark mode detection
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (e) => {
+      setDark(e.matches);
+      document.documentElement.classList.toggle('dark', e.matches);
+    };
+    apply(mq);
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
 
   const toggleDark = () => {
-    setDark(!dark);
-    document.documentElement.classList.toggle('dark');
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle('dark', next);
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Mobile Header */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-display font-bold text-sm">B</span>
-          </div>
-          <span className="font-display font-bold text-foreground">BNG Finance</span>
+      {/* Mobile Header — safe-area top inset */}
+      <header
+        className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border flex items-center justify-between select-none"
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))', height: 'calc(3.5rem + env(safe-area-inset-top))' }}
+      >
+        <div className="flex items-center gap-2 h-14">
+          {/* 4. Back button on non-root routes */}
+          {!isRoot ? (
+            <Button variant="ghost" size="icon" className="h-8 w-8 select-none" onClick={() => navigate(-1)}>
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <span className="text-primary-foreground font-display font-bold text-sm">B</span>
+              </div>
+              <span className="font-display font-bold text-foreground">BNG Finance</span>
+            </div>
+          )}
+          {!isRoot && (
+            <span className="font-display font-semibold text-foreground ml-1">
+              {navItems.find(n => n.path === location.pathname)?.label || ''}
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={toggleDark} className="h-8 w-8">
+        <div className="flex items-center gap-1 h-14">
+          <Button variant="ghost" size="icon" onClick={toggleDark} className="h-8 w-8 select-none">
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)} className="h-8 w-8">
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)} className="h-8 w-8 select-none">
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </Button>
         </div>
@@ -50,7 +85,11 @@ export default function AppLayout() {
       {/* Mobile Nav Overlay */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
-          <nav className="absolute top-14 left-0 right-0 bg-card border-b border-border p-4 space-y-1" onClick={e => e.stopPropagation()}>
+          <nav
+            className="absolute left-0 right-0 bg-card border-b border-border p-4 space-y-1"
+            style={{ top: 'calc(3.5rem + env(safe-area-inset-top))' }}
+            onClick={e => e.stopPropagation()}
+          >
             {navItems.map(item => {
               const Icon = item.icon;
               const active = location.pathname === item.path;
@@ -59,7 +98,7 @@ export default function AppLayout() {
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all select-none ${
                     active 
                       ? 'bg-primary text-primary-foreground' 
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -70,6 +109,13 @@ export default function AppLayout() {
                 </Link>
               );
             })}
+            <button
+              onClick={() => { setMobileOpen(false); setDeleteOpen(true); }}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium w-full text-left text-destructive hover:bg-destructive/10 transition-all select-none"
+            >
+              <Trash2 className="w-5 h-5" />
+              Delete Account
+            </button>
           </nav>
         </div>
       )}
@@ -94,7 +140,7 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all select-none ${
                   active 
                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
                     : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
@@ -107,15 +153,24 @@ export default function AppLayout() {
           })}
         </nav>
 
-        <div className="p-4 space-y-2">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground" onClick={toggleDark}>
+        <div className="p-4 space-y-1">
+          <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground select-none" onClick={toggleDark}>
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {dark ? 'Light Mode' : 'Dark Mode'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 select-none"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Account
           </Button>
           <Button 
             variant="ghost" 
             size="sm" 
-            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive" 
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive select-none" 
             onClick={() => base44.auth.logout()}
           >
             <LogOut className="w-4 h-4" />
@@ -125,14 +180,17 @@ export default function AppLayout() {
       </aside>
 
       {/* Main Content */}
-      <main className="lg:ml-64 pt-14 lg:pt-0 min-h-screen">
+      <main className="lg:ml-64 min-h-screen lg:pt-0" style={{ paddingTop: 'calc(3.5rem + env(safe-area-inset-top))' }}>
         <div className="p-4 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
         </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-t border-border flex justify-around py-1 px-2">
+      {/* Mobile Bottom Nav — safe-area bottom inset */}
+      <nav
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-xl border-t border-border flex justify-around px-2 select-none"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
+      >
         {navItems.slice(0, 5).map(item => {
           const Icon = item.icon;
           const active = location.pathname === item.path;
@@ -140,7 +198,7 @@ export default function AppLayout() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-[10px] font-medium transition-all ${
+              className={`flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-[10px] font-medium transition-all select-none ${
                 active ? 'text-primary' : 'text-muted-foreground'
               }`}
             >
@@ -150,6 +208,9 @@ export default function AppLayout() {
           );
         })}
       </nav>
+
+      {/* 7. Delete Account Dialog */}
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
     </div>
   );
 }
