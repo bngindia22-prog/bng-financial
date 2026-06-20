@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight } from 'lucide-react';
+import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight, Pencil, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -12,10 +12,11 @@ import StatCard from '@/components/dashboard/StatCard';
 import AllocationChart from '@/components/dashboard/AllocationChart';
 import HealthScore from '@/components/dashboard/HealthScore';
 import IncomeModal from '@/components/dashboard/IncomeModal';
-import { formatCurrency, CATEGORIES, getCategoryLabel, getCategoryColor } from '@/lib/constants';
+import { formatCurrency, CATEGORIES, MONTHS, getCategoryLabel, getCategoryColor } from '@/lib/constants';
 
 export default function Dashboard() {
   const [incomeModal, setIncomeModal] = useState(false);
+  const [editRecord, setEditRecord] = useState(null);
   const queryClient = useQueryClient();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -49,6 +50,43 @@ export default function Dashboard() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
   });
 
+  const updateIncome = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.MonthlyIncome.update(id, data),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+  });
+
+  const deleteIncome = useMutation({
+    mutationFn: (id) => base44.entities.MonthlyIncome.delete(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['incomes'] });
+      const prev = queryClient.getQueryData(['incomes']);
+      queryClient.setQueryData(['incomes'], old => (old || []).filter(i => i.id !== id));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes'], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+  });
+
+  const handleIncomeSubmit = (data) => {
+    if (editRecord) {
+      updateIncome.mutate({ id: editRecord.id, data });
+    } else {
+      createIncome.mutate(data);
+    }
+    setEditRecord(null);
+  };
+
+  const handleEdit = (record) => {
+    setEditRecord(record);
+    setIncomeModal(true);
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Delete this income record?')) {
+      deleteIncome.mutate(id);
+    }
+  };
+
   const currentMonthIncome = incomes.find(i => i.month === currentMonth && i.year === currentYear);
   const thisYearIncomes = incomes.filter(i => i.year === currentYear);
   const totalIncome = thisYearIncomes.reduce((s, i) => s + (i.income || 0), 0);
@@ -73,7 +111,7 @@ export default function Dashboard() {
             Earn Smart. Spend Smart. Save Smart. Build Wealth.
           </p>
         </div>
-        <Button onClick={() => setIncomeModal(true)} className="gap-2 shadow-lg shadow-primary/20">
+        <Button onClick={() => { setEditRecord(null); setIncomeModal(true); }} className="gap-2 shadow-lg shadow-primary/20">
           <Plus className="w-4 h-4" />
           Add Income
         </Button>
@@ -151,12 +189,38 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Income History */}
+      {incomes.length > 0 && (
+        <Card className="p-5 border-0 shadow-sm">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Income History</h3>
+          <div className="space-y-2">
+            {incomes.slice(0, 6).map(record => (
+              <div key={record.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div>
+                  <p className="text-sm font-semibold">{MONTHS?.[record.month - 1]} {record.year}</p>
+                  <p className="text-xs text-muted-foreground">{formatCurrency(record.income)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEdit(record)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(record.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <IncomeModal
         open={incomeModal}
-        onOpenChange={setIncomeModal}
-        onSubmit={(data) => createIncome.mutate(data)}
-        currentMonth={currentMonth}
-        currentYear={currentYear}
+        onOpenChange={(v) => { setIncomeModal(v); if (!v) setEditRecord(null); }}
+        onSubmit={handleIncomeSubmit}
+        currentMonth={editRecord ? editRecord.month : currentMonth}
+        currentYear={editRecord ? editRecord.year : currentYear}
+        editRecord={editRecord}
       />
     </div>
   );

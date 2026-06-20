@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,9 +6,15 @@ import { Label } from '@/components/ui/label';
 import { MONTHS, allocateIncome, formatCurrency, CATEGORIES } from '@/lib/constants';
 import { IndianRupee } from 'lucide-react';
 
-export default function IncomeModal({ open, onOpenChange, onSubmit, currentMonth, currentYear }) {
+export default function IncomeModal({ open, onOpenChange, onSubmit, currentMonth, currentYear, editRecord }) {
   const [income, setIncome] = useState('');
   const allocation = allocateIncome(Number(income) || 0);
+
+  useEffect(() => {
+    if (open) {
+      setIncome(editRecord ? String(editRecord.income) : '');
+    }
+  }, [open, editRecord]);
 
   const handleSubmit = () => {
     if (!income || Number(income) <= 0) return;
@@ -22,12 +28,14 @@ export default function IncomeModal({ open, onOpenChange, onSubmit, currentMonth
     onOpenChange(false);
   };
 
+  const isEdit = !!editRecord;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display">
-            Enter Income — {MONTHS[currentMonth - 1]} {currentYear}
+            {isEdit ? 'Edit' : 'Enter'} Income — {MONTHS[currentMonth - 1]} {currentYear}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
@@ -64,7 +72,7 @@ export default function IncomeModal({ open, onOpenChange, onSubmit, currentMonth
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={!income || Number(income) <= 0}>
-            Save Income
+            {isEdit ? 'Update Income' : 'Save Income'}
           </Button>
         </DialogFooter>
       </DialogContent>
