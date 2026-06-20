@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MONTH_SHORT, CATEGORIES, allocateIncome, formatCurrency } from '@/lib/constants';
 import { motion } from 'framer-motion';
 import { Edit3, Check, X } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function MonthlyPlanner() {
   const currentYear = new Date().getFullYear();
@@ -15,20 +16,22 @@ export default function MonthlyPlanner() {
   const [editingMonth, setEditingMonth] = useState(null);
   const [editValue, setEditValue] = useState('');
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: incomes = [] } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   const createIncome = useMutation({
     mutationFn: (data) => base44.entities.MonthlyIncome.create(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes', user?.id] }),
   });
 
   const updateIncome = useMutation({
     mutationFn: ({ id, data }) => base44.entities.MonthlyIncome.update(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['incomes', user?.id] }),
   });
 
   const yearIncomes = incomes.filter(i => i.year === Number(year));

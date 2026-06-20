@@ -15,36 +15,41 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency, MONTHS, CATEGORIES } from '@/lib/constants';
 import { useState } from 'react';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Alerts() {
   const [showReminder, setShowReminder] = useState(false);
   const [form, setForm] = useState({ title: '', date: '', type: 'bill', amount: '' });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const now = new Date();
 
   const { data: incomes = [] } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   const { data: expenses = [] } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 500),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-date', 500),
+    enabled: !!user,
   });
 
   const { data: reminders = [] } = useQuery({
-    queryKey: ['reminders'],
-    queryFn: () => base44.entities.Reminder.list('-date', 200),
+    queryKey: ['reminders', user?.id],
+    queryFn: () => base44.entities.Reminder.filter({ created_by_id: user.id }, '-date', 200),
+    enabled: !!user,
   });
 
   const createReminder = useMutation({
     mutationFn: (data) => base44.entities.Reminder.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reminders'] }); setShowReminder(false); setForm({ title: '', date: '', type: 'bill', amount: '' }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reminders', user?.id] }); setShowReminder(false); setForm({ title: '', date: '', type: 'bill', amount: '' }); },
   });
 
   const deleteReminder = useMutation({
     mutationFn: (id) => base44.entities.Reminder.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders', user?.id] }),
   });
 
   // Generate smart alerts

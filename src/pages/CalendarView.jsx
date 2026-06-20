@@ -7,24 +7,29 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MONTHS, formatCurrency, getCategoryColor, getCategoryLabel } from '@/lib/constants';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
+  const { user } = useAuth();
 
   const { data: expenses = [] } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 500),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-date', 500),
+    enabled: !!user,
   });
 
   const { data: incomes = [] } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   const { data: reminders = [] } = useQuery({
-    queryKey: ['reminders'],
-    queryFn: () => base44.entities.Reminder.list('-date', 200),
+    queryKey: ['reminders', user?.id],
+    queryFn: () => base44.entities.Reminder.filter({ created_by_id: user.id }, '-date', 200),
+    enabled: !!user,
   });
 
   const year = currentDate.getFullYear();

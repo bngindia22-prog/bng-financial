@@ -8,16 +8,21 @@ import {
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, MONTH_SHORT } from '@/lib/constants';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Analytics() {
+  const { user } = useAuth();
+
   const { data: incomes = [] } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   const { data: expenses = [] } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 500),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-date', 500),
+    enabled: !!user,
   });
 
   const year = new Date().getFullYear();

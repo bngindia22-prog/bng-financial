@@ -13,23 +13,27 @@ import AllocationChart from '@/components/dashboard/AllocationChart';
 import HealthScore from '@/components/dashboard/HealthScore';
 import IncomeModal from '@/components/dashboard/IncomeModal';
 import { formatCurrency, CATEGORIES, MONTHS, getCategoryLabel, getCategoryColor } from '@/lib/constants';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Dashboard() {
   const [incomeModal, setIncomeModal] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
   const { data: incomes = [], refetch: refetchIncomes } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 100),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 100),
+    enabled: !!user,
   });
 
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-created_date', 100),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-created_date', 100),
+    enabled: !!user,
   });
 
   // 9. Pull-to-refresh
@@ -41,30 +45,30 @@ export default function Dashboard() {
   const createIncome = useMutation({
     mutationFn: (data) => base44.entities.MonthlyIncome.create(data),
     onMutate: async (newItem) => {
-      await queryClient.cancelQueries({ queryKey: ['incomes'] });
-      const prev = queryClient.getQueryData(['incomes']);
-      queryClient.setQueryData(['incomes'], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
+      await queryClient.cancelQueries({ queryKey: ['incomes', user?.id] });
+      const prev = queryClient.getQueryData(['incomes', user?.id]);
+      queryClient.setQueryData(['incomes', user?.id], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
       return { prev };
     },
-    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes'], ctx.prev),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes', user?.id], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes', user?.id] }),
   });
 
   const updateIncome = useMutation({
     mutationFn: ({ id, data }) => base44.entities.MonthlyIncome.update(id, data),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes', user?.id] }),
   });
 
   const deleteIncome = useMutation({
     mutationFn: (id) => base44.entities.MonthlyIncome.delete(id),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['incomes'] });
-      const prev = queryClient.getQueryData(['incomes']);
-      queryClient.setQueryData(['incomes'], old => (old || []).filter(i => i.id !== id));
+      await queryClient.cancelQueries({ queryKey: ['incomes', user?.id] });
+      const prev = queryClient.getQueryData(['incomes', user?.id]);
+      queryClient.setQueryData(['incomes', user?.id], old => (old || []).filter(i => i.id !== id));
       return { prev };
     },
-    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes'], ctx.prev),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes'] }),
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['incomes', user?.id], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['incomes', user?.id] }),
   });
 
   const handleIncomeSubmit = (data) => {

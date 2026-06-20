@@ -7,20 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Download, FileText, TrendingUp, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, calculateHealthScore, getHealthLabel } from '@/lib/constants';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Reports() {
   const [reportType, setReportType] = useState('monthly');
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
   const year = new Date().getFullYear();
+  const { user } = useAuth();
 
   const { data: incomes = [] } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   const { data: expenses = [] } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 500),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-date', 500),
+    enabled: !!user,
   });
 
   const yearIncomes = incomes.filter(i => i.year === year);

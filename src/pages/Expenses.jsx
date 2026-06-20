@@ -14,21 +14,25 @@ import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
 import { CATEGORIES, formatCurrency, getCategoryLabel, getCategoryColor, MONTHS } from '@/lib/constants';
 import { Plus, Trash2, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function Expenses() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], category: '', amount: '', notes: '' });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const now = new Date();
 
   const { data: expenses = [], refetch: refetchExpenses } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => base44.entities.Expense.list('-date', 200),
+    queryKey: ['expenses', user?.id],
+    queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-date', 200),
+    enabled: !!user,
   });
 
   const { data: incomes = [], refetch: refetchIncomes } = useQuery({
-    queryKey: ['incomes'],
-    queryFn: () => base44.entities.MonthlyIncome.list('-created_date', 200),
+    queryKey: ['incomes', user?.id],
+    queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
+    enabled: !!user,
   });
 
   // 9. Pull-to-refresh
@@ -40,14 +44,14 @@ export default function Expenses() {
   const createExpense = useMutation({
     mutationFn: (data) => base44.entities.Expense.create(data),
     onMutate: async (newItem) => {
-      await queryClient.cancelQueries({ queryKey: ['expenses'] });
-      const prev = queryClient.getQueryData(['expenses']);
-      queryClient.setQueryData(['expenses'], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
+      await queryClient.cancelQueries({ queryKey: ['expenses', user?.id] });
+      const prev = queryClient.getQueryData(['expenses', user?.id]);
+      queryClient.setQueryData(['expenses', user?.id], old => [{ ...newItem, id: 'optimistic-' + Date.now() }, ...(old || [])]);
       return { prev };
     },
-    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses'], ctx.prev),
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses', user?.id], ctx.prev),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses', user?.id] });
       setShowForm(false);
       resetForm();
     },
@@ -57,13 +61,13 @@ export default function Expenses() {
   const deleteExpense = useMutation({
     mutationFn: (id) => base44.entities.Expense.delete(id),
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['expenses'] });
-      const prev = queryClient.getQueryData(['expenses']);
-      queryClient.setQueryData(['expenses'], old => (old || []).filter(e => e.id !== id));
+      await queryClient.cancelQueries({ queryKey: ['expenses', user?.id] });
+      const prev = queryClient.getQueryData(['expenses', user?.id]);
+      queryClient.setQueryData(['expenses', user?.id], old => (old || []).filter(e => e.id !== id));
       return { prev };
     },
-    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses'], ctx.prev),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses', user?.id], ctx.prev),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['expenses', user?.id] }),
   });
 
   const resetForm = () => setForm({ date: new Date().toISOString().split('T')[0], category: '', amount: '', notes: '' });
