@@ -57,8 +57,6 @@ export default function Expenses() {
     onError: (_e, _v, ctx) => queryClient.setQueryData(['expenses', user?.id], ctx.prev),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses', user?.id] });
-      setShowForm(false);
-      resetForm();
     },
   });
 
@@ -80,12 +78,20 @@ export default function Expenses() {
   const handleSubmit = () => {
     if (!form.category || !form.amount || Number(form.amount) <= 0) return;
     const d = new Date(form.date);
-    createExpense.mutate({
-      ...form,
-      amount: Number(form.amount),
-      month: d.getMonth() + 1,
-      year: d.getFullYear(),
-    });
+    createExpense.mutate(
+      {
+        ...form,
+        amount: Number(form.amount),
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+      },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          resetForm();
+        },
+      }
+    );
   };
 
   // Budget overview for current month
