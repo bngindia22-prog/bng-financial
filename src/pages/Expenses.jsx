@@ -216,19 +216,16 @@ export default function Expenses() {
             </div>
             <div>
               <Label>Category</Label>
-              {/* 8. Mobile Drawer bottom-sheet for Select */}
-              <div className="mt-1">
-                <MobileSelect
-                  value={form.category}
-                  onValueChange={v => setForm({ ...form, category: v })}
-                  placeholder="Select category"
-                  label="Select Category"
-                >
-                  {CATEGORIES.map(cat => (
-                    <option key={cat.key} value={cat.key}>{cat.label}</option>
-                  ))}
-                </MobileSelect>
-              </div>
+              <select
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select category</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat.key} value={cat.key}>{cat.label}</option>
+                ))}
+              </select>
             </div>
             <div>
               <Label>Amount (₹)</Label>
