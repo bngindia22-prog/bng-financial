@@ -11,10 +11,14 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { month, year, incomeData, expenseData } = body;
+    const { month, year, incomeData, expenseData, checkOnly } = body;
 
     // Get the current app user's Google Sheets token
     const { accessToken } = await base44.asServiceRole.connectors.getCurrentAppUserConnection(CONNECTOR_ID);
+
+    if (checkOnly) {
+      return Response.json({ connected: true });
+    }
 
     // Build spreadsheet title
     const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });

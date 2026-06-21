@@ -23,7 +23,7 @@ export default function Reports() {
   const [exportLoading, setExportLoading] = useState(false);
   const [lastSheetUrl, setLastSheetUrl] = useState(null);
 
-  // Check connection by trying the function
+  // Check connection status via backend function
   useEffect(() => {
     if (!user) return;
     base44.functions.invoke('exportToGoogleSheets', { checkOnly: true })
@@ -33,18 +33,14 @@ export default function Reports() {
 
   const handleConnectSheets = async () => {
     setSheetsLoading(true);
-    const url = await base44.connectors.connectAppUser(CONNECTOR_ID);
-    const popup = window.open(url, '_blank');
-    const timer = setInterval(() => {
-      if (!popup || popup.closed) {
-        clearInterval(timer);
-        // Re-check connection
-        base44.functions.invoke('exportToGoogleSheets', { checkOnly: true })
-          .then(() => setSheetsConnected(true))
-          .catch(() => setSheetsConnected(false))
-          .finally(() => setSheetsLoading(false));
-      }
-    }, 500);
+    try {
+      const returnUrl = window.location.href;
+      const url = await base44.connectors.connectAppUser(CONNECTOR_ID, { returnUrl });
+      window.location.href = url;
+    } catch (e) {
+      setSheetsLoading(false);
+      toast({ title: 'Connection failed', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleDisconnectSheets = async () => {
