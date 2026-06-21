@@ -1,19 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, FileText, TrendingUp, BarChart3 } from 'lucide-react';
+import { Download, FileText, TrendingUp, BarChart3, Sheet, ExternalLink, Link2Off, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, calculateHealthScore, getHealthLabel } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+
+const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
 
 export default function Reports() {
   const [reportType, setReportType] = useState('monthly');
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
   const year = new Date().getFullYear();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [sheetsConnected, setSheetsConnected] = useState(false);
+  const [sheetsLoading, setSheetsLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [lastSheetUrl, setLastSheetUrl] = useState(null);
+
+  // Check connection by trying the function
+  useEffect(() => {
+    if (!user) return;
+    base44.functions.invoke('exportToGoogleSheets', { checkOnly: true })
+      .then(() => setSheetsConnected(true))
+      .catch(() => setSheetsConnected(false));
+  }, [user]);
+
+  const handleConnectSheets = async () => {
+    setSheetsLoading(true);
+    const url = await base44.connectors.connectAppUser(CONNECTOR_ID);
+    const popup = window.open(url, '_blank');
+    const timer = setInterval(() => {
+      if (!popup || popup.closed) {
+        clearInterval(timer);
+        // Re-check connection
+        base44.functions.invoke('exportToGoogleSheets', { checkOnly: true })
+          .then(() => setSheetsConnected(true))
+          .catch(() => setSheetsConnected(false))
+          .finally(() => setSheetsLoading(false));
+      }
+    }, 500);
+  };
+
+  const handleDisconnectSheets = async () => {
+    await base44.connectors.disconnectAppUser(CONNECTOR_ID);
+    setSheetsConnected(false);
+    setLastSheetUrl(null);
+  };
+
+  const handleExportToSheets = async () => {
+    setExportLoading(true);
+    const monthNum = Number(selectedMonth);
+    const data = getMonthlyData(monthNum);
+    try {
+      const res = await base44.functions.invoke('exportToGoogleSheets', {
+        month: monthNum,
+        year,
+        incomeData: data.income || null,
+        expenseData: data.expenses,
+      });
+      setLastSheetUrl(res.data.spreadsheetUrl);
+      toast({ title: 'Exported to Google Sheets!', description: res.data.title });
+    } catch (e) {
+      toast({ title: 'Export failed', description: e.message, variant: 'destructive' });
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const { data: incomes = [] } = useQuery({
     queryKey: ['incomes', user?.id],
@@ -105,10 +163,33 @@ export default function Reports() {
           <h1 className="text-2xl lg:text-3xl font-display font-bold">Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Generate and download financial reports</p>
         </div>
-        <Button onClick={handleDownload} className="gap-2">
-          <Download className="w-4 h-4" />
-          Download PDF
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleDownload} variant="outline" className="gap-2">
+            <Download className="w-4 h-4" />
+            Download PDF
+          </Button>
+          {sheetsConnected ? (
+            <div className="flex gap-2">
+              <Button onClick={handleExportToSheets} disabled={exportLoading} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
+                Export to Sheets
+              </Button>
+              {lastSheetUrl && (
+                <Button variant="outline" size="icon" onClick={() => window.open(lastSheetUrl, '_blank')}>
+                  <ExternalLink className="w-4 h-4" />
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={handleDisconnectSheets} title="Disconnect Google Sheets">
+                <Link2Off className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleConnectSheets} disabled={sheetsLoading} variant="outline" className="gap-2">
+              {sheetsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4 text-emerald-600" />}
+              Connect Google Sheets
+            </Button>
+          )}
+        </div>
       </motion.div>
 
       <div className="flex flex-wrap gap-3">
