@@ -3,11 +3,12 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, CalendarDays, Wallet, BarChart3, 
   FileText, Table2, Bell, Menu, X, LogOut, Sun, Moon,
-  ChevronLeft, Trash2
+  ChevronLeft, Trash2, Link2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import DeleteAccountDialog from '@/components/DeleteAccountDialog';
+import { useAuth } from '@/lib/AuthContext';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +24,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isRoot = location.pathname === '/';
@@ -109,6 +111,20 @@ export default function AppLayout() {
                 </Link>
               );
             })}
+            {user?.role === 'admin' && (
+              <Link
+                to="/admin/links"
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all select-none ${
+                  location.pathname === '/admin/links'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                }`}
+              >
+                <Link2 className="w-5 h-5" />
+                Category Links (Admin)
+              </Link>
+            )}
             <button
               onClick={() => { setMobileOpen(false); setDeleteOpen(true); }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium w-full text-left text-destructive hover:bg-destructive/10 transition-all select-none"
@@ -154,6 +170,19 @@ export default function AppLayout() {
         </nav>
 
         <div className="p-4 space-y-1">
+          {user?.role === 'admin' && (
+            <Link
+              to="/admin/links"
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all select-none ${
+                location.pathname === '/admin/links'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+              }`}
+            >
+              <Link2 className="w-5 h-5" />
+              Category Links
+            </Link>
+          )}
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground select-none" onClick={toggleDark}>
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {dark ? 'Light Mode' : 'Dark Mode'}

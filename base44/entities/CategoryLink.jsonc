@@ -1,0 +1,35 @@
+{
+  "name": "CategoryLink",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "home_needs",
+        "emergency_fund",
+        "investment",
+        "learning",
+        "luxury",
+        "charity"
+      ],
+      "description": "Expense category"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL to redirect when user clicks the category"
+    },
+    "label": {
+      "type": "string",
+      "description": "Optional custom button label"
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether the link is active"
+    }
+  },
+  "required": [
+    "category",
+    "url"
+  ]
+}

@@ -20,6 +20,7 @@ import CalendarView from '@/pages/CalendarView';
 import Analytics from '@/pages/Analytics';
 import Reports from '@/pages/Reports';
 import Alerts from '@/pages/Alerts';
+import AdminLinks from '@/pages/AdminLinks';
 
 const PageTransition = ({ children }) => (
   <motion.div
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
             <Route path="/analytics" element={<PageTransition><Analytics /></PageTransition>} />
             <Route path="/reports" element={<PageTransition><Reports /></PageTransition>} />
             <Route path="/alerts" element={<PageTransition><Alerts /></PageTransition>} />
+            <Route path="/admin/links" element={<PageTransition><AdminLinks /></PageTransition>} />
           </Route>
         </Route>
         <Route path="*" element={<PageNotFound />} />

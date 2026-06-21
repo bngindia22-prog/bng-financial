@@ -12,7 +12,7 @@ import { MobileSelect } from '@/components/ui/MobileSelect';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
 import { CATEGORIES, formatCurrency, getCategoryLabel, getCategoryColor, MONTHS } from '@/lib/constants';
-import { Plus, Trash2, Wallet } from 'lucide-react';
+import { Plus, Trash2, Wallet, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -33,6 +33,11 @@ export default function Expenses() {
     queryKey: ['incomes', user?.id],
     queryFn: () => base44.entities.MonthlyIncome.filter({ created_by_id: user.id }, '-created_date', 200),
     enabled: !!user,
+  });
+
+  const { data: categoryLinks = [] } = useQuery({
+    queryKey: ['categoryLinks'],
+    queryFn: () => base44.entities.CategoryLink.list(),
   });
 
   // 9. Pull-to-refresh
@@ -95,7 +100,8 @@ export default function Expenses() {
     const spent = currentMonthExpenses.filter(e => e.category === cat.key).reduce((s, e) => s + (e.amount || 0), 0);
     const remaining = budget - spent;
     const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
-    return { ...cat, budget, spent, remaining, pct };
+    const link = categoryLinks.find(l => l.category === cat.key && l.enabled !== false && l.url);
+    return { ...cat, budget, spent, remaining, pct, link };
   });
 
   return (
@@ -118,7 +124,7 @@ export default function Expenses() {
           <Card key={cat.key} className="p-4 border-0 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-              <span className="text-xs font-medium truncate">{cat.label}</span>
+              <span className="text-xs font-medium truncate flex-1">{cat.label}</span>
             </div>
             <div className="h-1.5 bg-secondary rounded-full overflow-hidden mb-2">
               <div
@@ -126,12 +132,24 @@ export default function Expenses() {
                 style={{ width: `${cat.pct}%`, backgroundColor: cat.pct > 90 ? '#ef4444' : cat.color }}
               />
             </div>
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-xs mb-2">
               <span className="text-muted-foreground">{formatCurrency(cat.spent)} spent</span>
               <span className={cat.remaining < 0 ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
                 {formatCurrency(cat.remaining)} left
               </span>
             </div>
+            {cat.link && (
+              <a
+                href={cat.link.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 w-full text-[11px] font-medium py-1.5 px-2 rounded-lg transition-colors"
+                style={{ backgroundColor: `${cat.color}18`, color: cat.color }}
+              >
+                <ExternalLink className="w-3 h-3" />
+                {cat.link.label || `Open ${cat.label}`}
+              </a>
+            )}
           </Card>
         ))}
       </div>
