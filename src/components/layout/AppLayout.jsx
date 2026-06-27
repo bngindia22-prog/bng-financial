@@ -24,7 +24,7 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, isOfflineMode } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isRoot = location.pathname === '/';
@@ -211,6 +211,12 @@ export default function AppLayout() {
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen lg:pt-0" style={{ paddingTop: 'calc(3.5rem + env(safe-area-inset-top))' }}>
         <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+          {isOfflineMode && (
+            <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              You're offline — showing cached data. Changes will sync when connection returns.
+            </div>
+          )}
           <Outlet />
         </div>
       </main>

@@ -13,10 +13,30 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   useEffect(() => {
     checkAppState();
   }, []);
+
+  // Re-verify auth when connection is restored after offline mode
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isOfflineMode) {
+        setIsOfflineMode(false);
+        checkAppState();
+      }
+    };
+    const handleOffline = () => {
+      setIsOfflineMode(true);
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isOfflineMode]);
 
   const checkAppState = async () => {
     try {
@@ -49,7 +69,23 @@ export const AuthProvider = ({ children }) => {
         setIsLoadingPublicSettings(false);
       } catch (appError) {
         console.error('App state check failed:', appError);
-        
+
+        // Offline mode: if we have a token, assume authenticated and use cached data
+        const isNetworkError = !appError.status || appError.status === 0 || appError.code === 'ERR_NETWORK';
+        if (isNetworkError && appParams.token) {
+          setIsOfflineMode(true);
+          setIsAuthenticated(true);
+          // Restore cached user so queries with user.id can use persisted data
+          try {
+            const cachedUser = JSON.parse(localStorage.getItem('bng_cached_user') || 'null');
+            if (cachedUser) setUser(cachedUser);
+          } catch {}
+          setIsLoadingAuth(false);
+          setIsLoadingPublicSettings(false);
+          setAuthError(null);
+          return;
+        }
+
         // Handle app-level errors
         if (appError.status === 403 && appError.data?.extra_data?.reason) {
           const reason = appError.data.extra_data.reason;
@@ -95,14 +131,29 @@ export const AuthProvider = ({ children }) => {
       setIsLoadingAuth(true);
       const currentUser = await base44.auth.me();
       setUser(currentUser);
+      // Cache user for offline restoration
+      try { localStorage.setItem('bng_cached_user', JSON.stringify(currentUser)); } catch {}
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
       setAuthChecked(true);
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
-      setIsAuthenticated(false);
       setAuthChecked(true);
+
+      // Offline mode: keep user authenticated if we have a token
+      const isNetworkError = !error.status || error.status === 0 || error.code === 'ERR_NETWORK';
+      if (isNetworkError && appParams.token) {
+        setIsOfflineMode(true);
+        setIsAuthenticated(true);
+        try {
+          const cachedUser = JSON.parse(localStorage.getItem('bng_cached_user') || 'null');
+          if (cachedUser) setUser(cachedUser);
+        } catch {}
+        return;
+      }
+
+      setIsAuthenticated(false);
       
       // If user auth fails, it might be an expired token
       if (error.status === 401 || error.status === 403) {
@@ -117,6 +168,7 @@ export const AuthProvider = ({ children }) => {
   const logout = (shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
+    try { localStorage.removeItem('bng_cached_user'); } catch {}
     
     if (shouldRedirect) {
       // Use the SDK's logout method which handles token cleanup and redirect
@@ -141,6 +193,7 @@ export const AuthProvider = ({ children }) => {
       authError,
       appPublicSettings,
       authChecked,
+      isOfflineMode,
       logout,
       navigateToLogin,
       checkUserAuth,
