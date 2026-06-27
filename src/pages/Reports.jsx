@@ -9,8 +9,24 @@ import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, calculateHealthScore, getHealthLabel } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import jsPDF from 'jspdf';
+import pptxgen from 'pptxgenjs';
 
 const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
+
+const downloadFile = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 150);
+};
 
 const getQrDataUrl = async (text, size = 150) => {
   try {
@@ -122,7 +138,6 @@ export default function Reports() {
   };
 
   const handleDownload = async () => {
-    const jsPDF = (await import('jspdf')).default;
     const doc = new jsPDF();
     const qrDataUrl = await getQrDataUrl('https://wa.me/919652953160', 150);
     const pageWidth = 210;
@@ -289,11 +304,11 @@ export default function Reports() {
     // Watermark on all pages
     addPdfWatermark(doc);
 
-    doc.save(`BNG_${reportType}_report_${year}.pdf`);
+    const pdfBlob = doc.output('blob');
+    downloadFile(pdfBlob, `BNG_${reportType}_report_${year}.pdf`);
   };
 
   const handleDownloadPPT = async () => {
-    const pptxgen = (await import('pptxgenjs')).default;
     const pptx = new pptxgen();
     pptx.layout = 'LAYOUT_WIDE';
     pptx.author = 'BNG Financial Maintenance';
@@ -489,7 +504,8 @@ export default function Reports() {
       footerSlide.addText('Scan for WhatsApp: 9652953160', { x: 5.0, y: 5.55, w: 3.3, h: 0.3, fontSize: 11, color: MUTED, align: 'center' });
     }
 
-    await pptx.writeFile({ fileName: `BNG_${reportType}_report_${year}.pptx` });
+    const pptxBlob = await pptx.write({ outputType: 'blob' });
+    downloadFile(pptxBlob, `BNG_${reportType}_report_${year}.pptx`);
   };
 
   const currentData = getMonthlyData(Number(selectedMonth));
