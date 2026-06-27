@@ -100,7 +100,7 @@ export default function Reports() {
       doc.setTextColor(100, 116, 139);
       doc.setFontSize(72);
       doc.setFont('helvetica', 'bold');
-      doc.text('BNG ANI', 105, 160, { align: 'center', angle: 45 });
+      doc.text('BNG', 105, 160, { align: 'center', angle: 45 });
       doc.restoreGraphicsState();
     }
   };
@@ -283,7 +283,7 @@ export default function Reports() {
     const BLUE = '3B82F6';
 
     const addPptWatermark = (slide) => {
-      slide.addText('BNG ANI', {
+      slide.addText('BNG', {
         x: 2.5, y: 2.2, w: 8, h: 1.5,
         fontSize: 60, bold: true, color: '94A3B8',
         align: 'center', valign: 'middle',
