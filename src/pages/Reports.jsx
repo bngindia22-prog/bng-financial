@@ -91,59 +91,178 @@ export default function Reports() {
     return { income: m, expenses: monthExp, totalExpenses: totalExp };
   };
 
+  const addPdfWatermark = (doc) => {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({ opacity: 0.08 }));
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(72);
+      doc.setFont('helvetica', 'bold');
+      doc.text('BNG ANI', 105, 160, { align: 'center', angle: 45 });
+      doc.restoreGraphicsState();
+    }
+  };
+
   const handleDownload = async () => {
     const jsPDF = (await import('jspdf')).default;
     const doc = new jsPDF();
+    const pageWidth = 210;
+    const margin = 20;
+    let y = 20;
 
+    // Header band
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, pageWidth, 32, 'F');
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
-    doc.text('BNG Financial Maintenance', 20, 20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('BNG Financial Maintenance', margin, 16);
     doc.setFontSize(10);
-    doc.text(`Report Type: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}`, 20, 30);
-    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, 20, 36);
+    doc.setFont('helvetica', 'normal');
+    const reportLabel = reportType.charAt(0).toUpperCase() + reportType.slice(1);
+    doc.text(`${reportLabel} Financial Report`, margin, 24);
+    doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')}`, pageWidth - margin, 24, { align: 'right' });
 
-    let y = 50;
+    y = 44;
+    doc.setTextColor(30, 41, 59);
 
-    if (reportType === 'monthly') {
-      const data = getMonthlyData(Number(selectedMonth));
-      doc.setFontSize(14);
-      doc.text(`${MONTHS[Number(selectedMonth) - 1]} ${year}`, 20, y);
-      y += 12;
-      doc.setFontSize(10);
-      doc.text(`Total Income: ${formatCurrency(data.income?.income || 0)}`, 20, y); y += 8;
-      doc.text(`Total Expenses: ${formatCurrency(data.totalExpenses)}`, 20, y); y += 8;
-      doc.text(`Net Savings: ${formatCurrency((data.income?.income || 0) - data.totalExpenses)}`, 20, y); y += 14;
+    // Section helper
+    const addSectionTitle = (title) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(16, 185, 129);
+      doc.text(title, margin, y);
+      doc.setDrawColor(16, 185, 129);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y + 2, pageWidth - margin, y + 2);
+      y += 10;
+      doc.setTextColor(30, 41, 59);
+    };
 
-      doc.setFontSize(12);
-      doc.text('Allocation Breakdown:', 20, y); y += 10;
-      doc.setFontSize(10);
-      CATEGORIES.forEach(cat => {
-        doc.text(`${cat.label} (${cat.percentage}%): ${formatCurrency(data.income?.[cat.key] || 0)}`, 25, y);
-        y += 7;
-      });
-    } else if (reportType === 'annual') {
-      doc.setFontSize(14);
-      doc.text(`Annual Report ${year}`, 20, y); y += 12;
+    // Summary section
+    addSectionTitle('Financial Summary');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    if (reportType === 'annual') {
       const totalIncome = yearIncomes.reduce((s, i) => s + (i.income || 0), 0);
       const totalExp = yearExpenses.reduce((s, e) => s + (e.amount || 0), 0);
-      doc.setFontSize(10);
-      doc.text(`Total Income: ${formatCurrency(totalIncome)}`, 20, y); y += 8;
-      doc.text(`Total Expenses: ${formatCurrency(totalExp)}`, 20, y); y += 8;
-      doc.text(`Net Savings: ${formatCurrency(totalIncome - totalExp)}`, 20, y); y += 8;
+      const netSavings = totalIncome - totalExp;
+      doc.text(`Total Income:    ${formatCurrency(totalIncome)}`, margin, y); y += 7;
+      doc.text(`Total Expenses:  ${formatCurrency(totalExp)}`, margin, y); y += 7;
+      doc.text(`Net Savings:     ${formatCurrency(netSavings)}`, margin, y); y += 7;
+      doc.text(`Health Score:    ${score}/100 (${healthLabel})`, margin, y); y += 12;
+    } else {
+      const data = getMonthlyData(Number(selectedMonth));
+      const netSavings = (data.income?.income || 0) - data.totalExpenses;
+      doc.text(`Total Income:    ${formatCurrency(data.income?.income || 0)}`, margin, y); y += 7;
+      doc.text(`Total Expenses:  ${formatCurrency(data.totalExpenses)}`, margin, y); y += 7;
+      doc.text(`Net Savings:     ${formatCurrency(netSavings)}`, margin, y); y += 7;
+      doc.text(`Health Score:    ${score}/100 (${healthLabel})`, margin, y); y += 12;
+    }
 
-      const score = calculateHealthScore(yearIncomes, yearExpenses);
-      const { label } = getHealthLabel(score);
-      doc.text(`Financial Health Score: ${score}/100 (${label})`, 20, y); y += 14;
+    // Allocation Breakdown section
+    addSectionTitle('Six-Point Allocation Breakdown');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Category', margin, y);
+    doc.text('%', 80, y);
+    doc.text('Allocated', 100, y);
+    doc.text('Spent', 135, y);
+    doc.text('Remaining', 165, y);
+    y += 5;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
 
-      doc.setFontSize(12);
-      doc.text('Monthly Breakdown:', 20, y); y += 10;
+    const dataForAlloc = reportType === 'annual'
+      ? { income: { home_needs: yearIncomes.reduce((s, i) => s + (i.home_needs || 0), 0), emergency_fund: yearIncomes.reduce((s, i) => s + (i.emergency_fund || 0), 0), investment: yearIncomes.reduce((s, i) => s + (i.investment || 0), 0), learning: yearIncomes.reduce((s, i) => s + (i.learning || 0), 0), luxury: yearIncomes.reduce((s, i) => s + (i.luxury || 0), 0), charity: yearIncomes.reduce((s, i) => s + (i.charity || 0), 0) }, expenses: yearExpenses }
+      : getMonthlyData(Number(selectedMonth));
+
+    CATEGORIES.forEach(cat => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const allocated = dataForAlloc.income?.[cat.key] || 0;
+      const spent = dataForAlloc.expenses.filter(e => e.category === cat.key).reduce((s, e) => s + (e.amount || 0), 0);
+      const remaining = allocated - spent;
+      doc.text(cat.label, margin, y);
+      doc.text(`${cat.percentage}%`, 80, y);
+      doc.text(formatCurrency(allocated), 100, y);
+      doc.text(formatCurrency(spent), 135, y);
+      doc.text(formatCurrency(remaining), 165, y);
+      y += 7;
+    });
+    y += 8;
+
+    // Monthly Breakdown (annual) or Expense Details (monthly)
+    if (reportType === 'annual') {
+      addSectionTitle('Monthly Income Breakdown');
       doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Month', margin, y);
+      doc.text('Income', 80, y);
+      doc.text('Expenses', 120, y);
+      doc.text('Savings', 160, y);
+      y += 5;
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
       MONTHS.forEach((m, idx) => {
         if (y > 270) { doc.addPage(); y = 20; }
         const mi = yearIncomes.find(i => i.month === idx + 1);
-        doc.text(`${m}: Income ${formatCurrency(mi?.income || 0)}`, 25, y);
+        const me = yearExpenses.filter(e => new Date(e.date).getMonth() + 1 === idx + 1).reduce((s, e) => s + (e.amount || 0), 0);
+        const income = mi?.income || 0;
+        doc.text(m, margin, y);
+        doc.text(formatCurrency(income), 80, y);
+        doc.text(formatCurrency(me), 120, y);
+        doc.text(formatCurrency(income - me), 160, y);
         y += 6;
       });
+    } else {
+      addSectionTitle('Expense Details');
+      const monthExp = getMonthlyData(Number(selectedMonth)).expenses;
+      if (monthExp.length === 0) {
+        doc.setFontSize(10);
+        doc.text('No expenses recorded for this month.', margin, y);
+      } else {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Date', margin, y);
+        doc.text('Category', 60, y);
+        doc.text('Amount', 120, y);
+        doc.text('Notes', 155, y);
+        y += 5;
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 6;
+        doc.setFont('helvetica', 'normal');
+        monthExp.forEach(e => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.text(new Date(e.date).toLocaleDateString('en-IN'), margin, y);
+          doc.text(CATEGORIES.find(c => c.key === e.category)?.label || e.category, 60, y);
+          doc.text(formatCurrency(e.amount), 120, y);
+          doc.text((e.notes || '-').substring(0, 35), 155, y);
+          y += 6;
+        });
+      }
     }
+
+    // Footer / Method
+    y += 12;
+    if (y > 250) { doc.addPage(); y = 20; }
+    addSectionTitle('Six-Point Financial Allocation Method');
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('50% Home Needs   15% Emergency Fund   10% Investment', margin, y); y += 7;
+    doc.text('10% Learning   10% Luxury   5% Charity', margin, y); y += 7;
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(16, 185, 129);
+    doc.text('Earn Smart. Spend Smart. Save Smart. Build Wealth.', margin, y);
+
+    // Watermark on all pages
+    addPdfWatermark(doc);
 
     doc.save(`BNG_${reportType}_report_${year}.pdf`);
   };
@@ -163,9 +282,20 @@ export default function Reports() {
     const RED = 'EF4444';
     const BLUE = '3B82F6';
 
+    const addPptWatermark = (slide) => {
+      slide.addText('BNG ANI', {
+        x: 2.5, y: 2.2, w: 8, h: 1.5,
+        fontSize: 60, bold: true, color: '94A3B8',
+        align: 'center', valign: 'middle',
+        transparency: 85,
+        rotate: 35,
+      });
+    };
+
     // Slide 1 — Title
     const titleSlide = pptx.addSlide();
     titleSlide.background = { color: DARK };
+    addPptWatermark(titleSlide);
     titleSlide.addText('BNG Financial Maintenance', { x: 0.5, y: 1.8, w: 12, h: 1, fontSize: 40, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Calibri' });
     const reportLabel = reportType.charAt(0).toUpperCase() + reportType.slice(1);
     titleSlide.addText(`${reportLabel} Financial Report`, { x: 0.5, y: 2.8, w: 12, h: 0.6, fontSize: 24, color: GREEN, align: 'center' });
@@ -175,6 +305,7 @@ export default function Reports() {
     // Slide 2 — Summary
     const summarySlide = pptx.addSlide();
     summarySlide.background = { color: 'FFFFFF' };
+    addPptWatermark(summarySlide);
     summarySlide.addText('Financial Summary', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
     summarySlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
 
@@ -206,6 +337,7 @@ export default function Reports() {
     // Slide 3 — Allocation Breakdown
     const allocSlide = pptx.addSlide();
     allocSlide.background = { color: 'FFFFFF' };
+    addPptWatermark(allocSlide);
     allocSlide.addText('Six-Point Allocation Breakdown', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
     allocSlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
 
@@ -249,6 +381,7 @@ export default function Reports() {
     if (reportType === 'annual') {
       const monthlySlide = pptx.addSlide();
       monthlySlide.background = { color: 'FFFFFF' };
+      addPptWatermark(monthlySlide);
       monthlySlide.addText('Monthly Income Breakdown', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
       monthlySlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
 
@@ -279,6 +412,7 @@ export default function Reports() {
     } else {
       const expSlide = pptx.addSlide();
       expSlide.background = { color: 'FFFFFF' };
+      addPptWatermark(expSlide);
       expSlide.addText('Expense Details', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
       expSlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
 
@@ -316,6 +450,7 @@ export default function Reports() {
     // Slide — Footer/Method
     const footerSlide = pptx.addSlide();
     footerSlide.background = { color: LIGHT_BG };
+    addPptWatermark(footerSlide);
     footerSlide.addText('Six-Point Financial Allocation Method', { x: 0.5, y: 0.8, w: 12, h: 0.6, fontSize: 24, bold: true, color: DARK, align: 'center' });
     const methodText = [
       { text: '50% Home Needs  •  15% Emergency Fund  •  10% Investment\n', options: { fontSize: 16, color: DARK, align: 'center', breakLine: true } },
