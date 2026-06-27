@@ -14,7 +14,18 @@ import pptxgen from 'pptxgenjs';
 
 const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
 
-const downloadFile = (blob, filename) => {
+const downloadFile = async (blob, filename, mime) => {
+  // Try Web Share API first (most reliable in mobile WebView)
+  const file = new File([blob], filename, { type: mime });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    } catch (e) {
+      // User cancelled or error - fall through to anchor download
+    }
+  }
+  // Fallback: anchor click
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -31,7 +42,10 @@ const downloadFile = (blob, filename) => {
 const getQrDataUrl = async (text, size = 150) => {
   try {
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=${size}x${size}`;
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
     const blob = await res.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -138,6 +152,7 @@ export default function Reports() {
   };
 
   const handleDownload = async () => {
+    try {
     const doc = new jsPDF();
     const qrDataUrl = await getQrDataUrl('https://wa.me/919652953160', 150);
     const pageWidth = 210;
@@ -305,10 +320,14 @@ export default function Reports() {
     addPdfWatermark(doc);
 
     const pdfBlob = doc.output('blob');
-    downloadFile(pdfBlob, `BNG_${reportType}_report_${year}.pdf`);
+    await downloadFile(pdfBlob, `BNG_${reportType}_report_${year}.pdf`, 'application/pdf');
+    } catch (error) {
+      toast({ title: 'PDF Download failed', description: error.message, variant: 'destructive' });
+    }
   };
 
   const handleDownloadPPT = async () => {
+    try {
     const pptx = new pptxgen();
     pptx.layout = 'LAYOUT_WIDE';
     pptx.author = 'BNG Financial Maintenance';
@@ -505,7 +524,10 @@ export default function Reports() {
     }
 
     const pptxBlob = await pptx.write({ outputType: 'blob' });
-    downloadFile(pptxBlob, `BNG_${reportType}_report_${year}.pptx`);
+    await downloadFile(pptxBlob, `BNG_${reportType}_report_${year}.pptx`, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    } catch (error) {
+      toast({ title: 'PPT Download failed', description: error.message, variant: 'destructive' });
+    }
   };
 
   const currentData = getMonthlyData(Number(selectedMonth));
