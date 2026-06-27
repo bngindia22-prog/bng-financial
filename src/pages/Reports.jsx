@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, FileText, TrendingUp, BarChart3, Sheet, ExternalLink, Link2Off, Loader2 } from 'lucide-react';
+import { Download, FileText, TrendingUp, BarChart3, Sheet, ExternalLink, Link2Off, Loader2, Presentation } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, calculateHealthScore, getHealthLabel } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
@@ -148,6 +148,185 @@ export default function Reports() {
     doc.save(`BNG_${reportType}_report_${year}.pdf`);
   };
 
+  const handleDownloadPPT = async () => {
+    const pptxgen = (await import('pptxgenjs')).default;
+    const pptx = new pptxgen();
+    pptx.layout = 'LAYOUT_WIDE';
+    pptx.author = 'BNG Financial Maintenance';
+    pptx.company = 'BNG Financial';
+    pptx.subject = 'Financial Report';
+
+    const GREEN = '10B981';
+    const DARK = '1E293B';
+    const MUTED = '64748B';
+    const LIGHT_BG = 'F1F5F9';
+    const RED = 'EF4444';
+    const BLUE = '3B82F6';
+
+    // Slide 1 — Title
+    const titleSlide = pptx.addSlide();
+    titleSlide.background = { color: DARK };
+    titleSlide.addText('BNG Financial Maintenance', { x: 0.5, y: 1.8, w: 12, h: 1, fontSize: 40, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Calibri' });
+    const reportLabel = reportType.charAt(0).toUpperCase() + reportType.slice(1);
+    titleSlide.addText(`${reportLabel} Financial Report`, { x: 0.5, y: 2.8, w: 12, h: 0.6, fontSize: 24, color: GREEN, align: 'center' });
+    titleSlide.addText(`${reportType === 'annual' ? `Year ${year}` : `${MONTHS[Number(selectedMonth) - 1]} ${year}`}`, { x: 0.5, y: 3.4, w: 12, h: 0.5, fontSize: 18, color: 'CBD5E1', align: 'center' });
+    titleSlide.addText(`Generated: ${new Date().toLocaleDateString('en-IN')}`, { x: 0.5, y: 4.2, w: 12, h: 0.4, fontSize: 12, color: '94A3B8', align: 'center' });
+
+    // Slide 2 — Summary
+    const summarySlide = pptx.addSlide();
+    summarySlide.background = { color: 'FFFFFF' };
+    summarySlide.addText('Financial Summary', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
+    summarySlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
+
+    if (reportType === 'annual') {
+      const totalIncome = yearIncomes.reduce((s, i) => s + (i.income || 0), 0);
+      const totalExp = yearExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+      const netSavings = totalIncome - totalExp;
+      summarySlide.addText('Total Income', { x: 0.5, y: 1.3, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(totalIncome), { x: 0.5, y: 1.7, w: 5.8, h: 0.5, fontSize: 22, color: GREEN, bold: true });
+      summarySlide.addText('Total Expenses', { x: 6.7, y: 1.3, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(totalExp), { x: 6.7, y: 1.7, w: 5.8, h: 0.5, fontSize: 22, color: RED, bold: true });
+      summarySlide.addText('Net Savings', { x: 0.5, y: 2.5, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(netSavings), { x: 0.5, y: 2.9, w: 5.8, h: 0.5, fontSize: 22, color: BLUE, bold: true });
+      summarySlide.addText('Health Score', { x: 6.7, y: 2.5, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(`${score}/100 (${healthLabel})`, { x: 6.7, y: 2.9, w: 5.8, h: 0.5, fontSize: 22, color: DARK, bold: true });
+    } else {
+      const data = getMonthlyData(Number(selectedMonth));
+      const netSavings = (data.income?.income || 0) - data.totalExpenses;
+      summarySlide.addText('Total Income', { x: 0.5, y: 1.3, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(data.income?.income || 0), { x: 0.5, y: 1.7, w: 5.8, h: 0.5, fontSize: 22, color: GREEN, bold: true });
+      summarySlide.addText('Total Expenses', { x: 6.7, y: 1.3, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(data.totalExpenses), { x: 6.7, y: 1.7, w: 5.8, h: 0.5, fontSize: 22, color: RED, bold: true });
+      summarySlide.addText('Net Savings', { x: 0.5, y: 2.5, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(formatCurrency(netSavings), { x: 0.5, y: 2.9, w: 5.8, h: 0.5, fontSize: 22, color: BLUE, bold: true });
+      summarySlide.addText('Health Score', { x: 6.7, y: 2.5, w: 5.8, h: 0.4, fontSize: 14, color: MUTED, bold: true });
+      summarySlide.addText(`${score}/100 (${healthLabel})`, { x: 6.7, y: 2.9, w: 5.8, h: 0.5, fontSize: 22, color: DARK, bold: true });
+    }
+
+    // Slide 3 — Allocation Breakdown
+    const allocSlide = pptx.addSlide();
+    allocSlide.background = { color: 'FFFFFF' };
+    allocSlide.addText('Six-Point Allocation Breakdown', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
+    allocSlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
+
+    const allocRows = [
+      [{ text: 'Category', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+       { text: 'Allocation %', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+       { text: 'Allocated', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+       { text: 'Spent', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+       { text: 'Remaining', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } }],
+    ];
+
+    const dataForAlloc = reportType === 'annual'
+      ? { income: { home_needs: yearIncomes.reduce((s, i) => s + (i.home_needs || 0), 0), emergency_fund: yearIncomes.reduce((s, i) => s + (i.emergency_fund || 0), 0), investment: yearIncomes.reduce((s, i) => s + (i.investment || 0), 0), learning: yearIncomes.reduce((s, i) => s + (i.learning || 0), 0), luxury: yearIncomes.reduce((s, i) => s + (i.luxury || 0), 0), charity: yearIncomes.reduce((s, i) => s + (i.charity || 0), 0) }, expenses: yearExpenses }
+      : getMonthlyData(Number(selectedMonth));
+
+    CATEGORIES.forEach(cat => {
+      const allocated = dataForAlloc.income?.[cat.key] || 0;
+      const spent = dataForAlloc.expenses.filter(e => e.category === cat.key).reduce((s, e) => s + (e.amount || 0), 0);
+      const remaining = allocated - spent;
+      allocRows.push([
+        cat.label,
+        `${cat.percentage}%`,
+        formatCurrency(allocated),
+        formatCurrency(spent),
+        formatCurrency(remaining),
+      ]);
+    });
+
+    allocSlide.addTable(allocRows, {
+      x: 0.5, y: 1.2, w: 12,
+      colW: [3.5, 2, 2.5, 2.5, 2.5],
+      fontSize: 12,
+      rowH: 0.4,
+      align: 'left',
+      valign: 'middle',
+      border: { type: 'solid', pt: 1, color: 'E2E8F0' },
+      autoPage: true,
+    });
+
+    // Slide 4 — Monthly Breakdown (annual) or Expense Details (monthly)
+    if (reportType === 'annual') {
+      const monthlySlide = pptx.addSlide();
+      monthlySlide.background = { color: 'FFFFFF' };
+      monthlySlide.addText('Monthly Income Breakdown', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
+      monthlySlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
+
+      const monthlyRows = [
+        [{ text: 'Month', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+         { text: 'Income', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+         { text: 'Expenses', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+         { text: 'Savings', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } }],
+      ];
+
+      MONTHS.forEach((m, idx) => {
+        const mi = yearIncomes.find(i => i.month === idx + 1);
+        const me = yearExpenses.filter(e => new Date(e.date).getMonth() + 1 === idx + 1).reduce((s, e) => s + (e.amount || 0), 0);
+        const income = mi?.income || 0;
+        monthlyRows.push([m, formatCurrency(income), formatCurrency(me), formatCurrency(income - me)]);
+      });
+
+      monthlySlide.addTable(monthlyRows, {
+        x: 0.5, y: 1.2, w: 12,
+        colW: [3, 3, 3, 3],
+        fontSize: 11,
+        rowH: 0.35,
+        align: 'left',
+        valign: 'middle',
+        border: { type: 'solid', pt: 1, color: 'E2E8F0' },
+        autoPage: true,
+      });
+    } else {
+      const expSlide = pptx.addSlide();
+      expSlide.background = { color: 'FFFFFF' };
+      expSlide.addText('Expense Details', { x: 0.5, y: 0.3, w: 12, h: 0.6, fontSize: 28, bold: true, color: DARK });
+      expSlide.addShape('rect', { x: 0.5, y: 0.95, w: 12, h: 0.04, fill: { color: GREEN } });
+
+      const monthExp = getMonthlyData(Number(selectedMonth)).expenses;
+      if (monthExp.length === 0) {
+        expSlide.addText('No expenses recorded for this month.', { x: 0.5, y: 1.5, w: 12, h: 0.5, fontSize: 16, color: MUTED, align: 'center' });
+      } else {
+        const expRows = [
+          [{ text: 'Date', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+           { text: 'Category', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+           { text: 'Amount', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } },
+           { text: 'Notes', options: { bold: true, fill: { color: DARK }, color: 'FFFFFF' } }],
+        ];
+        monthExp.forEach(e => {
+          expRows.push([
+            new Date(e.date).toLocaleDateString('en-IN'),
+            CATEGORIES.find(c => c.key === e.category)?.label || e.category,
+            formatCurrency(e.amount),
+            e.notes || '-',
+          ]);
+        });
+        expSlide.addTable(expRows, {
+          x: 0.5, y: 1.2, w: 12,
+          colW: [2.5, 3, 2.5, 4],
+          fontSize: 11,
+          rowH: 0.35,
+          align: 'left',
+          valign: 'middle',
+          border: { type: 'solid', pt: 1, color: 'E2E8F0' },
+          autoPage: true,
+        });
+      }
+    }
+
+    // Slide — Footer/Method
+    const footerSlide = pptx.addSlide();
+    footerSlide.background = { color: LIGHT_BG };
+    footerSlide.addText('Six-Point Financial Allocation Method', { x: 0.5, y: 0.8, w: 12, h: 0.6, fontSize: 24, bold: true, color: DARK, align: 'center' });
+    const methodText = [
+      { text: '50% Home Needs  •  15% Emergency Fund  •  10% Investment\n', options: { fontSize: 16, color: DARK, align: 'center', breakLine: true } },
+      { text: '10% Learning  •  10% Luxury  •  5% Charity', options: { fontSize: 16, color: DARK, align: 'center' } },
+    ];
+    footerSlide.addText(methodText, { x: 0.5, y: 1.8, w: 12, h: 1.2 });
+    footerSlide.addText('Earn Smart. Spend Smart. Save Smart. Build Wealth.', { x: 0.5, y: 3.5, w: 12, h: 0.5, fontSize: 14, color: GREEN, italic: true, align: 'center' });
+
+    await pptx.writeFile({ fileName: `BNG_${reportType}_report_${year}.pptx` });
+  };
+
   const currentData = getMonthlyData(Number(selectedMonth));
   const score = calculateHealthScore(yearIncomes, yearExpenses);
   const { label: healthLabel, color: healthColor } = getHealthLabel(score);
@@ -163,6 +342,10 @@ export default function Reports() {
           <Button onClick={handleDownload} variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
             Download PDF
+          </Button>
+          <Button onClick={handleDownloadPPT} variant="outline" className="gap-2">
+            <Presentation className="w-4 h-4" />
+            Download PPT
           </Button>
           {sheetsConnected ? (
             <div className="flex gap-2">
