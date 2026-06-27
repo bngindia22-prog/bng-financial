@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClientInstance } from '@/lib/query-client'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { queryClientInstance, queryPersister } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
@@ -88,13 +88,16 @@ function App() {
 
   return (
     <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
+      <PersistQueryClientProvider
+        client={queryClientInstance}
+        persistOptions={{ persister: queryPersister, maxAge: 1000 * 60 * 60 * 24 * 7 }}
+      >
         <Router>
           <ScrollToTop />
           <AuthenticatedApp />
         </Router>
         <Toaster />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </AuthProvider>
   )
 }
