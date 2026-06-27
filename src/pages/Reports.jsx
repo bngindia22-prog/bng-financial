@@ -9,9 +9,24 @@ import { motion } from 'framer-motion';
 import { MONTHS, CATEGORIES, formatCurrency, calculateHealthScore, getHealthLabel } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
-import QRCode from 'qrcode';
 
 const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
+
+const getQrDataUrl = async (text, size = 150) => {
+  try {
+    const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=${size}x${size}`;
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function Reports() {
   const [reportType, setReportType] = useState('monthly');
@@ -109,7 +124,7 @@ export default function Reports() {
   const handleDownload = async () => {
     const jsPDF = (await import('jspdf')).default;
     const doc = new jsPDF();
-    const qrDataUrl = await QRCode.toDataURL('https://wa.me/919652953160', { width: 150, margin: 1 });
+    const qrDataUrl = await getQrDataUrl('https://wa.me/919652953160', 150);
     const pageWidth = 210;
     const margin = 20;
     let y = 20;
@@ -264,10 +279,12 @@ export default function Reports() {
     doc.text('Earn Smart. Spend Smart. Save Smart. Build Wealth.', margin, y);
 
     // WhatsApp QR Code
-    doc.addImage(qrDataUrl, 'PNG', pageWidth - 42, y - 28, 25, 25);
-    doc.setFontSize(8);
-    doc.setTextColor(100, 116, 139);
-    doc.text('Scan for WhatsApp', pageWidth - 29.5, y + 2, { align: 'center' });
+    if (qrDataUrl) {
+      doc.addImage(qrDataUrl, 'PNG', pageWidth - 42, y - 28, 25, 25);
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Scan for WhatsApp', pageWidth - 29.5, y + 2, { align: 'center' });
+    }
 
     // Watermark on all pages
     addPdfWatermark(doc);
@@ -289,7 +306,7 @@ export default function Reports() {
     const LIGHT_BG = 'F1F5F9';
     const RED = 'EF4444';
     const BLUE = '3B82F6';
-    const qrDataUrl = await QRCode.toDataURL('https://wa.me/919652953160', { width: 200, margin: 1 });
+    const qrDataUrl = await getQrDataUrl('https://wa.me/919652953160', 200);
 
     const addPptWatermark = (slide) => {
       slide.addText('BNG', {
@@ -467,8 +484,10 @@ export default function Reports() {
     ];
     footerSlide.addText(methodText, { x: 0.5, y: 1.8, w: 12, h: 1.2 });
     footerSlide.addText('Earn Smart. Spend Smart. Save Smart. Build Wealth.', { x: 0.5, y: 3.5, w: 12, h: 0.5, fontSize: 14, color: GREEN, italic: true, align: 'center' });
-    footerSlide.addImage({ data: qrDataUrl, x: 6.0, y: 4.2, w: 1.3, h: 1.3 });
-    footerSlide.addText('Scan for WhatsApp: 9652953160', { x: 5.0, y: 5.55, w: 3.3, h: 0.3, fontSize: 11, color: MUTED, align: 'center' });
+    if (qrDataUrl) {
+      footerSlide.addImage({ data: qrDataUrl, x: 6.0, y: 4.2, w: 1.3, h: 1.3 });
+      footerSlide.addText('Scan for WhatsApp: 9652953160', { x: 5.0, y: 5.55, w: 3.3, h: 0.3, fontSize: 11, color: MUTED, align: 'center' });
+    }
 
     await pptx.writeFile({ fileName: `BNG_${reportType}_report_${year}.pptx` });
   };
