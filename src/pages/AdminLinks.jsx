@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { CATEGORIES } from '@/lib/constants';
-import { Link2, Save, ShieldAlert } from 'lucide-react';
+import { Link2, Save, ShieldAlert, Headset } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function AdminLinks() {
   const { user } = useAuth();
@@ -21,11 +22,38 @@ export default function AdminLinks() {
   const [labels, setLabels] = useState({});
   const [enabled, setEnabled] = useState({});
   const [initialized, setInitialized] = useState(false);
+  const [careNumber, setCareNumber] = useState('');
+  const [careInitialized, setCareInitialized] = useState(false);
+  const { toast } = useToast();
 
   const { data: links = [] } = useQuery({
     queryKey: ['categoryLinks'],
     queryFn: () => base44.entities.CategoryLink.list(),
   });
+
+  const { data: settings = [] } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => base44.entities.Setting.list(),
+  });
+
+  useEffect(() => {
+    if (settings.length > 0 && !careInitialized) {
+      const care = settings.find(s => s.key === 'customer_care_number');
+      if (care) setCareNumber(care.value || '');
+      setCareInitialized(true);
+    }
+  }, [settings, careInitialized]);
+
+  const saveCareNumber = async () => {
+    const existing = settings.find(s => s.key === 'customer_care_number');
+    if (existing) {
+      await base44.entities.Setting.update(existing.id, { key: 'customer_care_number', value: careNumber });
+    } else {
+      await base44.entities.Setting.create({ key: 'customer_care_number', value: careNumber });
+    }
+    queryClient.invalidateQueries({ queryKey: ['settings'] });
+    toast({ title: 'Customer Care number saved' });
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (category) => {
@@ -88,6 +116,37 @@ export default function AdminLinks() {
         <p className="text-sm text-muted-foreground">
           Admin Panel — Configure redirect URLs for each expense category button.
         </p>
+      </motion.div>
+
+      {/* Customer Care Number */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <Card className="p-5 border-0 shadow-sm">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Headset className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-sm">Customer Care Number</h2>
+              <p className="text-xs text-muted-foreground">Mobile number shown to users for support</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Mobile Number</Label>
+              <Input
+                className="mt-1"
+                placeholder="e.g. 919652953160"
+                value={careNumber}
+                onChange={e => setCareNumber(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">Include country code for WhatsApp (e.g. 91…)</p>
+            </div>
+            <Button size="sm" className="w-full gap-2" onClick={saveCareNumber}>
+              <Save className="w-3.5 h-3.5" />
+              Save Number
+            </Button>
+          </div>
+        </Card>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

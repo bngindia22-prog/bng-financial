@@ -3,12 +3,13 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, CalendarDays, Wallet, BarChart3, 
   FileText, Table2, Bell, Menu, X, LogOut, Sun, Moon,
-  ChevronLeft, Trash2, Link2
+  ChevronLeft, Trash2, Link2, Headset
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { base44 } from '@/api/base44Client';
 import DeleteAccountDialog from '@/components/DeleteAccountDialog';
 import { useAuth } from '@/lib/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,6 +29,12 @@ export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const isRoot = location.pathname === '/';
+
+  const { data: settings = [] } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => base44.entities.Setting.list(),
+  });
+  const careNumber = settings.find(s => s.key === 'customer_care_number')?.value || '';
 
   // 1. Auto system dark mode detection
   useEffect(() => {
@@ -125,6 +132,15 @@ export default function AppLayout() {
                 Category Links (Admin)
               </Link>
             )}
+            {careNumber && (
+              <a
+                href={`tel:${careNumber}`}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-primary hover:bg-primary/10 transition-all select-none"
+              >
+                <Headset className="w-5 h-5" />
+                Customer Care
+              </a>
+            )}
             <button
               onClick={() => { setMobileOpen(false); setDeleteOpen(true); }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium w-full text-left text-destructive hover:bg-destructive/10 transition-all select-none"
@@ -182,6 +198,15 @@ export default function AppLayout() {
               <Link2 className="w-5 h-5" />
               Category Links
             </Link>
+          )}
+          {careNumber && (
+            <a
+              href={`tel:${careNumber}`}
+              className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-primary hover:bg-primary/10 transition-all select-none"
+            >
+              <Headset className="w-5 h-5" />
+              Customer Care
+            </a>
           )}
           <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground select-none" onClick={toggleDark}>
             {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
