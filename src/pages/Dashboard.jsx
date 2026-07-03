@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight, Pencil, Trash2, Headset } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -35,6 +35,12 @@ export default function Dashboard() {
     queryFn: () => base44.entities.Expense.filter({ created_by_id: user.id }, '-created_date', 100),
     enabled: !!user,
   });
+
+  const { data: settings = [] } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => base44.entities.Setting.list(),
+  });
+  const careNumber = settings.find(s => s.key === 'customer_care_number')?.value || '';
 
   // 9. Pull-to-refresh
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh(
@@ -192,6 +198,26 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      {/* Customer Care */}
+      {careNumber && (
+        <Card className="p-4 border-0 shadow-sm bg-primary/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Headset className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Customer Care</p>
+                <p className="text-xs text-muted-foreground">Need help? Call us</p>
+              </div>
+            </div>
+            <a href={`tel:${careNumber}`} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+              {careNumber}
+            </a>
+          </div>
+        </Card>
+      )}
 
       {/* Income History */}
       {incomes.length > 0 && (
