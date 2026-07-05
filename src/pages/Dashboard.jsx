@@ -123,12 +123,19 @@ export default function Dashboard() {
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl -translate-y-20 translate-x-20" />
         <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl translate-y-20 -translate-x-10" />
         <div className="relative flex flex-col sm:flex-row justify-between gap-4">
-          <div>
-            <p className="text-emerald-400 text-sm font-medium">{greeting} 👋</p>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-white mt-1">Dashboard</h1>
-            <p className="text-sm text-slate-300 mt-1">
-              Earn Smart. Spend Smart. Save Smart. Build Wealth.
-            </p>
+          <div className="flex items-center gap-4">
+            <img
+              src="https://media.base44.com/images/public/6a2ee013ed92bb68e2dbaa61/4b023938d_IMG_20260705_083942.png"
+              alt="BNG Financial App"
+              className="w-16 h-16 lg:w-20 lg:h-20 rounded-xl bg-white p-1.5 shadow-lg object-contain"
+            />
+            <div>
+              <p className="text-emerald-400 text-sm font-medium">{greeting} 👋</p>
+              <h1 className="text-2xl lg:text-3xl font-display font-bold text-white mt-1">Dashboard</h1>
+              <p className="text-sm text-slate-300 mt-1">
+                Earn Smart. Spend Smart. Save Smart. Build Wealth.
+              </p>
+            </div>
           </div>
           <Button
             onClick={() => { setEditRecord(null); setIncomeModal(true); }}
