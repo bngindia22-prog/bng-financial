@@ -15,18 +15,22 @@ import pptxgen from 'pptxgenjs';
 const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
 
 const downloadFile = async (blob, filename, mime) => {
-  // Try Web Share API first (most reliable in mobile WebView)
+  // Method 1: Web Share API with timeout (best for mobile/WebView)
   try {
     const file = new File([blob], filename, { type: mime });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: filename });
+      const sharePromise = navigator.share({ files: [file], title: filename });
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Share timeout')), 8000)
+      );
+      await Promise.race([sharePromise, timeoutPromise]);
       return true;
     }
   } catch (e) {
-    if (e && e.name === 'AbortError') return false; // User cancelled share
+    if (e && e.name === 'AbortError') return false;
     // Fall through to anchor download
   }
-  // Fallback: anchor click
+  // Method 2: Anchor download with blob URL
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -35,9 +39,13 @@ const downloadFile = async (blob, filename, mime) => {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
-    document.body.removeChild(a);
+    if (a.parentNode) document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 300);
+  }, 2000);
+  // Method 3: window.open as last resort (some WebViews handle this)
+  setTimeout(() => {
+    try { window.open(url, '_blank'); } catch (e) { /* ignore */ }
+  }, 100);
   return true;
 };
 
@@ -142,16 +150,22 @@ export default function Reports() {
   };
 
   const addPdfWatermark = (doc) => {
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.saveGraphicsState();
-      doc.setGState(new doc.GState({ opacity: 0.08 }));
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(72);
-      doc.setFont('helvetica', 'bold');
-      doc.text('BNG', 105, 160, { align: 'center', angle: 45 });
-      doc.restoreGraphicsState();
+    try {
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.saveGraphicsState();
+        if (doc.GState) {
+          doc.setGState(new doc.GState({ opacity: 0.08 }));
+        }
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(72);
+        doc.setFont('helvetica', 'bold');
+        doc.text('BNG', 105, 160, { align: 'center', angle: 45 });
+        doc.restoreGraphicsState();
+      }
+    } catch (e) {
+      // Watermark is optional - don't block the download
     }
   };
 
