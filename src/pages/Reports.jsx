@@ -16,14 +16,15 @@ const CONNECTOR_ID = '6a3804f81c2495bbfdf2eae7';
 
 const downloadFile = async (blob, filename, mime) => {
   // Try Web Share API first (most reliable in mobile WebView)
-  const file = new File([blob], filename, { type: mime });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
+  try {
+    const file = new File([blob], filename, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: filename });
-      return;
-    } catch (e) {
-      // User cancelled or error - fall through to anchor download
+      return true;
     }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return false; // User cancelled share
+    // Fall through to anchor download
   }
   // Fallback: anchor click
   const url = URL.createObjectURL(blob);
@@ -36,14 +37,15 @@ const downloadFile = async (blob, filename, mime) => {
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 150);
+  }, 300);
+  return true;
 };
 
 const getQrDataUrl = async (text, size = 150) => {
   try {
     const url = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=${size}x${size}`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
     const blob = await res.blob();
@@ -67,6 +69,8 @@ export default function Reports() {
   const [sheetsConnected, setSheetsConnected] = useState(false);
   const [sheetsLoading, setSheetsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pptLoading, setPptLoading] = useState(false);
   const [lastSheetUrl, setLastSheetUrl] = useState(null);
 
   // Check connection status via backend function
@@ -152,6 +156,7 @@ export default function Reports() {
   };
 
   const handleDownload = async () => {
+    setPdfLoading(true);
     try {
     const doc = new jsPDF();
     const qrDataUrl = await getQrDataUrl('https://wa.me/919652953160', 150);
@@ -321,12 +326,16 @@ export default function Reports() {
 
     const pdfBlob = doc.output('blob');
     await downloadFile(pdfBlob, `BNG_${reportType}_report_${year}.pdf`, 'application/pdf');
+    toast({ title: 'PDF downloaded successfully!', description: `BNG_${reportType}_report_${year}.pdf` });
     } catch (error) {
       toast({ title: 'PDF Download failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setPdfLoading(false);
     }
   };
 
   const handleDownloadPPT = async () => {
+    setPptLoading(true);
     try {
     const pptx = new pptxgen();
     pptx.layout = 'LAYOUT_WIDE';
@@ -525,8 +534,11 @@ export default function Reports() {
 
     const pptxBlob = await pptx.write({ outputType: 'blob' });
     await downloadFile(pptxBlob, `BNG_${reportType}_report_${year}.pptx`, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    toast({ title: 'PPT downloaded successfully!', description: `BNG_${reportType}_report_${year}.pptx` });
     } catch (error) {
       toast({ title: 'PPT Download failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setPptLoading(false);
     }
   };
 
@@ -542,13 +554,13 @@ export default function Reports() {
           <p className="text-sm text-muted-foreground mt-1">Generate and download financial reports</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleDownload} variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Download PDF
+          <Button onClick={handleDownload} disabled={pdfLoading || pptLoading} variant="outline" className="gap-2">
+            {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {pdfLoading ? 'Generating...' : 'Download PDF'}
           </Button>
-          <Button onClick={handleDownloadPPT} variant="outline" className="gap-2">
-            <Presentation className="w-4 h-4" />
-            Download PPT
+          <Button onClick={handleDownloadPPT} disabled={pdfLoading || pptLoading} variant="outline" className="gap-2">
+            {pptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Presentation className="w-4 h-4" />}
+            {pptLoading ? 'Generating...' : 'Download PPT'}
           </Button>
           {sheetsConnected ? (
             <div className="flex gap-2">
