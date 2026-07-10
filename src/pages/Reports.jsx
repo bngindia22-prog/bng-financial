@@ -568,35 +568,10 @@ export default function Reports() {
           <p className="text-sm text-muted-foreground mt-1">Generate and download financial reports</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleDownload} disabled={pdfLoading || pptLoading} variant="outline" className="gap-2">
+          <Button onClick={handleDownload} disabled={pdfLoading} variant="outline" className="gap-2">
             {pdfLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {pdfLoading ? 'Generating...' : 'Download PDF'}
           </Button>
-          <Button onClick={handleDownloadPPT} disabled={pdfLoading || pptLoading} variant="outline" className="gap-2">
-            {pptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Presentation className="w-4 h-4" />}
-            {pptLoading ? 'Generating...' : 'Download PPT'}
-          </Button>
-          {sheetsConnected ? (
-            <div className="flex gap-2">
-              <Button onClick={handleExportToSheets} disabled={exportLoading} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-                {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4" />}
-                Export to Sheets
-              </Button>
-              {lastSheetUrl && (
-                <Button variant="outline" size="icon" onClick={() => window.open(lastSheetUrl, '_blank')}>
-                  <ExternalLink className="w-4 h-4" />
-                </Button>
-              )}
-              <Button variant="ghost" size="icon" onClick={handleDisconnectSheets} title="Disconnect Google Sheets">
-                <Link2Off className="w-4 h-4 text-muted-foreground" />
-              </Button>
-            </div>
-          ) : (
-            <Button onClick={handleConnectSheets} disabled={sheetsLoading} variant="outline" className="gap-2">
-              {sheetsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sheet className="w-4 h-4 text-emerald-600" />}
-              Connect Google Sheets
-            </Button>
-          )}
         </div>
       </motion.div>
 
