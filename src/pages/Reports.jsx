@@ -41,11 +41,7 @@ const downloadFile = async (blob, filename, mime) => {
   setTimeout(() => {
     if (a.parentNode) document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 2000);
-  // Method 3: window.open as last resort (some WebViews handle this)
-  setTimeout(() => {
-    try { window.open(url, '_blank'); } catch (e) { /* ignore */ }
-  }, 100);
+  }, 5000);
   return true;
 };
 
