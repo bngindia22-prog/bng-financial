@@ -1,8 +1,8 @@
-**Welcome to your Base44 project** 
+**Welcome to bng project** 
 
 **About**
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+View and Edit  your app bng
 
 This project contains everything you need to run your app locally.
 
@@ -30,7 +30,6 @@ Run the app: `npm run dev`
 
 **Publish your changes**
 
-Open [Base44.com](http://Base44.com) and click on Publish.
 
 **Docs & Support**
 
