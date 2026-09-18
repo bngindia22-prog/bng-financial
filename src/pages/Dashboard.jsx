@@ -12,14 +12,19 @@ import StatCard from '@/components/dashboard/StatCard';
 import AllocationChart from '@/components/dashboard/AllocationChart';
 import HealthScore from '@/components/dashboard/HealthScore';
 import IncomeModal from '@/components/dashboard/IncomeModal';
-import { formatCurrency, CATEGORIES, MONTHS, getCategoryLabel, getCategoryColor } from '@/lib/constants';
+import QuickActions from '@/components/dashboard/QuickActions';
+import { formatCurrency, CATEGORIES, MONTHS, getCategoryLabel, getCategoryColor, calculateHealthScore, getHealthLabel } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { generateReportPdf } from '@/lib/reportPdf';
 
 export default function Dashboard() {
   const [incomeModal, setIncomeModal] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
+  const [downloading, setDownloading] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
@@ -110,6 +115,23 @@ export default function Dashboard() {
 
   const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
 
+  const handleDownloadReport = async () => {
+    setDownloading(true);
+    try {
+      const yearExpenses = expenses.filter(e => new Date(e.date).getFullYear() === currentYear);
+      const score = calculateHealthScore(thisYearIncomes, yearExpenses);
+      const filename = await generateReportPdf({
+        reportType: 'monthly', month: currentMonth, year: currentYear,
+        yearIncomes: thisYearIncomes, yearExpenses, score, healthLabel: getHealthLabel(score).label,
+      });
+      toast({ title: 'రిపోర్ట్ డౌన్‌లోడ్ అయింది · Report downloaded', description: filename });
+    } catch (error) {
+      toast({ title: 'Download failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative space-y-6 pb-20 lg:pb-0">
       <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
@@ -147,6 +169,13 @@ export default function Dashboard() {
         </div>
       </motion.div>
 
+      {/* Big easy-to-find action buttons */}
+      <QuickActions
+        onAddIncome={() => { setEditRecord(null); setIncomeModal(true); }}
+        onDownloadReport={handleDownloadReport}
+        downloading={downloading}
+      />
+
       {/* Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <StatCard title="Monthly Income" value={formatCurrency(currentMonthIncome?.income || 0)} icon={IndianRupee} color="#10b981" subtitle={MONTHS[currentMonth - 1]} index={0} />
@@ -163,8 +192,8 @@ export default function Dashboard() {
         <HealthScore monthlyIncomes={thisYearIncomes} expenses={expenses} />
       </div>
 
-      {/* Today's Expenses & Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Today's Expenses */}
+      <div className="grid grid-cols-1 gap-4">
         <Card className="p-5 border-0 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -202,31 +231,6 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-        </Card>
-
-        <Card className="p-5 border-0 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-5 rounded-full bg-blue-500" />
-            <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Link to="/expenses" className="group p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 hover:from-emerald-100 hover:to-emerald-200 transition-all text-center border border-emerald-200/50 dark:border-emerald-800/30">
-              <Wallet className="w-6 h-6 mx-auto text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium">Add Expense</span>
-            </Link>
-            <Link to="/planner" className="group p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 hover:from-blue-100 hover:to-blue-200 transition-all text-center border border-blue-200/50 dark:border-blue-800/30">
-              <TrendingUp className="w-6 h-6 mx-auto text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium">Planner</span>
-            </Link>
-            <Link to="/reports" className="group p-4 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/30 dark:to-violet-900/20 hover:from-violet-100 hover:to-violet-200 transition-all text-center border border-violet-200/50 dark:border-violet-800/30">
-              <IndianRupee className="w-6 h-6 mx-auto text-violet-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium">Reports</span>
-            </Link>
-            <Link to="/analytics" className="group p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/20 hover:from-amber-100 hover:to-amber-200 transition-all text-center border border-amber-200/50 dark:border-amber-800/30">
-              <Shield className="w-6 h-6 mx-auto text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium">Analytics</span>
-            </Link>
-          </div>
         </Card>
       </div>
 
