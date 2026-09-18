@@ -12,7 +12,7 @@ import { MobileSelect } from '@/components/ui/MobileSelect';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
 import { CATEGORIES, formatCurrency, getCategoryLabel, getCategoryColor, MONTHS } from '@/lib/constants';
-import { Plus, Trash2, Wallet, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Wallet, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -149,11 +149,11 @@ export default function Expenses() {
                 href={cat.link.url}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-1.5 w-full text-[11px] font-medium py-1.5 px-2 rounded-lg transition-colors"
-                style={{ backgroundColor: `${cat.color}18`, color: cat.color }}
+                className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-white py-2.5 px-2 rounded-xl shadow-md active:scale-[0.97] transition-transform"
+                style={{ background: `linear-gradient(135deg, ${cat.color}, ${cat.color}cc)`, boxShadow: `0 4px 12px ${cat.color}40` }}
               >
-                <ExternalLink className="w-3 h-3" />
-                {cat.link.label || `Open ${cat.label}`}
+                <span className="truncate">{cat.link.label || cat.label}</span>
+                <ArrowUpRight className="w-3.5 h-3.5 flex-shrink-0" />
               </a>
             )}
           </Card>
