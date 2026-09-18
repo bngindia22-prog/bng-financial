@@ -3,28 +3,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Plus, Wallet, Shield, TrendingUp, IndianRupee, ArrowRight, Pencil, Trash2, Headset } from 'lucide-react';
+import { Wallet, IndianRupee, ArrowRight, Pencil, Trash2, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import PullToRefreshIndicator from '@/components/ui/PullToRefreshIndicator';
-import StatCard from '@/components/dashboard/StatCard';
+import MonthSummary from '@/components/dashboard/MonthSummary';
 import AllocationChart from '@/components/dashboard/AllocationChart';
 import HealthScore from '@/components/dashboard/HealthScore';
 import IncomeModal from '@/components/dashboard/IncomeModal';
 import QuickActions from '@/components/dashboard/QuickActions';
-import { formatCurrency, CATEGORIES, MONTHS, getCategoryLabel, getCategoryColor, calculateHealthScore, getHealthLabel } from '@/lib/constants';
+import { formatCurrency, MONTHS, getCategoryLabel, getCategoryColor } from '@/lib/constants';
 import { useAuth } from '@/lib/AuthContext';
-import { useToast } from '@/components/ui/use-toast';
-import { generateReportPdf } from '@/lib/reportPdf';
 
 export default function Dashboard() {
   const [incomeModal, setIncomeModal] = useState(false);
   const [editRecord, setEditRecord] = useState(null);
-  const [downloading, setDownloading] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { toast } = useToast();
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
@@ -102,10 +98,9 @@ export default function Dashboard() {
 
   const currentMonthIncome = incomes.find(i => i.month === currentMonth && i.year === currentYear);
   const thisYearIncomes = incomes.filter(i => i.year === currentYear);
-  const totalIncome = thisYearIncomes.reduce((s, i) => s + (i.income || 0), 0);
-  const totalSavings = thisYearIncomes.reduce((s, i) => s + (i.emergency_fund || 0) + (i.investment || 0), 0);
-  const totalEmergency = thisYearIncomes.reduce((s, i) => s + (i.emergency_fund || 0), 0);
-  const totalInvestment = thisYearIncomes.reduce((s, i) => s + (i.investment || 0), 0);
+  const monthSpent = expenses
+    .filter(e => { const d = new Date(e.date); return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear; })
+    .reduce((s, e) => s + (e.amount || 0), 0);
 
   const todayExpenses = expenses.filter(e => {
     const d = new Date(e.date);
@@ -113,76 +108,31 @@ export default function Dashboard() {
   });
   const todayTotal = todayExpenses.reduce((s, e) => s + (e.amount || 0), 0);
 
-  const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
-
-  const handleDownloadReport = async () => {
-    setDownloading(true);
-    try {
-      const yearExpenses = expenses.filter(e => new Date(e.date).getFullYear() === currentYear);
-      const score = calculateHealthScore(thisYearIncomes, yearExpenses);
-      const filename = await generateReportPdf({
-        reportType: 'monthly', month: currentMonth, year: currentYear,
-        yearIncomes: thisYearIncomes, yearExpenses, score, healthLabel: getHealthLabel(score).label,
-      });
-      toast({ title: 'రిపోర్ట్ డౌన్‌లోడ్ అయింది · Report downloaded', description: filename });
-    } catch (error) {
-      toast({ title: 'Download failed', description: error.message, variant: 'destructive' });
-    } finally {
-      setDownloading(false);
-    }
-  };
+  const greeting = now.getHours() < 12 ? 'శుభోదయం · Good Morning' : now.getHours() < 17 ? 'నమస్కారం · Good Afternoon' : 'శుభ సాయంత్రం · Good Evening';
+  const firstName = user?.full_name?.split(' ')[0] || '';
 
   return (
-    <div ref={containerRef} className="relative space-y-6 pb-20 lg:pb-0">
+    <div ref={containerRef} className="relative space-y-5 pb-20 lg:pb-0">
       <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
 
-      {/* Hero Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-6 lg:p-8 shadow-xl"
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl -translate-y-20 translate-x-20" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl translate-y-20 -translate-x-10" />
-        <div className="relative flex flex-col sm:flex-row justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <img
-              src="https://media.base44.com/images/public/6a2ee013ed92bb68e2dbaa61/4b023938d_IMG_20260705_083942.png"
-              alt="BNG Financial App"
-              className="w-16 h-16 lg:w-20 lg:h-20 rounded-xl bg-white p-1.5 shadow-lg object-contain"
-            />
-            <div>
-              <p className="text-emerald-400 text-sm font-medium">{greeting} 👋</p>
-              <h1 className="text-2xl lg:text-3xl font-display font-bold text-white mt-1">Dashboard</h1>
-              <p className="text-sm text-slate-300 mt-1">
-                Earn Smart. Spend Smart. Save Smart. Build Wealth.
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={() => { setEditRecord(null); setIncomeModal(true); }}
-            className="gap-2 shadow-lg shadow-emerald-500/30 bg-emerald-500 hover:bg-emerald-400 text-white self-start"
-          >
-            <Plus className="w-4 h-4" />
-            Add Income
-          </Button>
+      {/* Calm Header */}
+      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 pt-1">
+        <img
+          src="https://media.base44.com/images/public/6a2ee013ed92bb68e2dbaa61/4b023938d_IMG_20260705_083942.png"
+          alt="BNG Financial"
+          className="w-11 h-11 rounded-xl bg-card border p-1 object-contain"
+        />
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{greeting}</p>
+          <h1 className="text-xl lg:text-2xl font-display font-semibold text-foreground truncate">{firstName || 'Dashboard'}</h1>
         </div>
       </motion.div>
 
-      {/* Big easy-to-find action buttons */}
-      <QuickActions
-        onAddIncome={() => { setEditRecord(null); setIncomeModal(true); }}
-        onDownloadReport={handleDownloadReport}
-        downloading={downloading}
-      />
+      {/* One clear summary */}
+      <MonthSummary monthLabel={MONTHS[currentMonth - 1]} income={currentMonthIncome?.income || 0} spent={monthSpent} />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        <StatCard title="Monthly Income" value={formatCurrency(currentMonthIncome?.income || 0)} icon={IndianRupee} color="#10b981" subtitle={MONTHS[currentMonth - 1]} index={0} />
-        <StatCard title="Total Savings" value={formatCurrency(totalSavings)} icon={Wallet} color="#3b82f6" subtitle={`${currentYear}`} index={1} />
-        <StatCard title="Emergency Fund" value={formatCurrency(totalEmergency)} icon={Shield} color="#8b5cf6" subtitle="Accumulated" index={2} />
-        <StatCard title="Investment" value={formatCurrency(totalInvestment)} icon={TrendingUp} color="#f59e0b" subtitle="Total Invested" index={3} />
-      </div>
+      {/* Only two actions */}
+      <QuickActions onAddIncome={() => { setEditRecord(null); setIncomeModal(true); }} />
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -196,12 +146,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-4">
         <Card className="p-5 border-0 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-5 rounded-full bg-emerald-500" />
-              <h3 className="text-sm font-semibold text-foreground">Today's Expenses</h3>
-            </div>
+            <h3 className="text-sm font-semibold text-foreground">ఈరోజు ఖర్చులు · Today</h3>
             <Link to="/expenses" className="text-xs text-primary font-medium flex items-center gap-1 hover:underline">
-              View All <ArrowRight className="w-3 h-3" />
+              అన్నీ చూడు <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
           {todayExpenses.length === 0 ? (
@@ -209,7 +156,7 @@ export default function Dashboard() {
               <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-2">
                 <Wallet className="w-6 h-6 text-muted-foreground" />
               </div>
-              <p className="text-sm text-muted-foreground">No expenses recorded today</p>
+              <p className="text-sm text-muted-foreground">ఈరోజు ఖర్చులు లేవు · No expenses today</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -226,7 +173,7 @@ export default function Dashboard() {
                 </div>
               ))}
               <div className="border-t pt-2 flex justify-between mt-2">
-                <span className="text-sm font-medium text-muted-foreground">Total Today</span>
+                <span className="text-sm font-medium text-muted-foreground">మొత్తం · Total</span>
                 <span className="text-sm font-bold text-foreground">{formatCurrency(todayTotal)}</span>
               </div>
             </div>
@@ -236,19 +183,18 @@ export default function Dashboard() {
 
       {/* Customer Care */}
       {careNumber && (
-        <Card className="p-4 border-0 shadow-sm overflow-hidden relative bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950/30 dark:to-blue-950/20">
-          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-emerald-500/5 blur-2xl" />
-          <div className="relative flex items-center justify-between">
+        <Card className="p-4 border-0 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                <Headset className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Phone className="w-4 h-4 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">Customer Care</p>
-                <p className="text-xs text-muted-foreground">Need help? Call us</p>
+                <p className="text-sm font-semibold text-foreground">సహాయం · Help</p>
+                <p className="text-xs text-muted-foreground">Customer Care</p>
               </div>
             </div>
-            <a href={`tel:${careNumber}`} className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-md shadow-emerald-500/20">
+            <a href={`tel:${careNumber}`} className="px-4 py-2 rounded-xl border text-sm font-medium text-foreground">
               {careNumber}
             </a>
           </div>
@@ -258,10 +204,7 @@ export default function Dashboard() {
       {/* Income History */}
       {incomes.length > 0 && (
         <Card className="p-5 border-0 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-5 rounded-full bg-violet-500" />
-            <h3 className="text-sm font-semibold text-foreground">Income History</h3>
-          </div>
+          <h3 className="text-sm font-semibold text-foreground mb-4">ఆదాయ చరిత్ర · Income History</h3>
           <div className="space-y-1">
             {incomes.slice(0, 6).map(record => (
               <div key={record.id} className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-secondary/50 transition-colors group">
@@ -274,7 +217,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground">{formatCurrency(record.income)}</p>
                   </div>
                 </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEdit(record)}>
                     <Pencil className="w-4 h-4" />
                   </Button>
